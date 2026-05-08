@@ -302,6 +302,38 @@ function normalizeMessages(
     })
   }
 
+  const preserveReasoningInContent =
+    _options?.preserveReasoningInContent === true ||
+    (model.options as any)?.preserveReasoningInContent === true
+
+  if (preserveReasoningInContent) {
+    msgs = msgs.map((msg) => {
+      if (msg.role === "assistant" && Array.isArray(msg.content)) {
+        const reasoningParts = msg.content.filter((part: any) => part.type === "reasoning")
+        const reasoningText = reasoningParts.map((part: any) => part.text).join("")
+        
+        if (reasoningText) {
+          const filteredContent = msg.content.filter((part: any) => part.type !== "reasoning")
+          return {
+            ...msg,
+            content: [
+              { type: "text", text: `<thinking>${reasoningText}</thinking>\n\n` },
+              ...filteredContent,
+            ],
+            providerOptions: {
+              ...msg.providerOptions,
+              openaiCompatible: {
+                ...msg.providerOptions?.openaiCompatible,
+                reasoning_content: undefined,
+              },
+            },
+          }
+        }
+      }
+      return msg
+    })
+  }
+
   if (
     typeof model.capabilities.interleaved === "object" &&
     model.capabilities.interleaved.field &&
